@@ -8,8 +8,12 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { collection, addDoc } from 'firebase/firestore';
+import { db } from '../firebaseConnection';
 
 const LoginScreen = ({ route, navigation }) => {
   const [modoLogin, setModoLogin] = useState(true);
@@ -18,37 +22,56 @@ const LoginScreen = ({ route, navigation }) => {
   const [senha, setSenha] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const aoLogar = () => {
+  const auth = getAuth();
+
+  const handleLogin = async () => {
     if (!email.includes('@')) {
-      alert("Email inválido! O email deve conter '@'.");
+      Alert.alert('Email inválido', "O email deve conter '@'");
       return;
     }
     if (email && senha) {
-      setIsLoading(true);
-      setTimeout(() => {
-        setIsLoading(false);
-        alert("Login bem-sucedido!");
-        route.params.onLogin();
+      try {
+        setIsLoading(true);
+        await signInWithEmailAndPassword(auth, email, senha);
+        Alert.alert('Login bem-sucedido!');
+        route.params?.onLogin && route.params.onLogin();
         navigation.replace('Dashboard');
-      }, 5000);
+      } catch (error) {
+        Alert.alert('Erro ao fazer login', error.message);
+      } finally {
+        setIsLoading(false);
+      }
     } else {
-      alert("Email ou senha incorretos!");
+      Alert.alert('Erro', 'Email ou senha incorretos!');
     }
   };
 
-  const handleRegister = () => {
+  const handleRegister = async () => {
     if (!email.includes('@')) {
-      alert("Email inválido! O email deve conter '@'.");
+      Alert.alert('Email inválido', "O email deve conter '@'");
       return;
     }
     if (nome && email && senha) {
-      alert("Cadastro bem-sucedido!");
-      setModoLogin(true);
-      setNome('');
-      setEmail('');
-      setSenha('');
+      try {
+        setIsLoading(true);
+        const userCredential = await createUserWithEmailAndPassword(auth, email, senha);
+        await addDoc(collection(db, 'users'), {
+          uid: userCredential.user.uid,
+          nome: nome,
+          email: email,
+        });
+        Alert.alert('Cadastro bem-sucedido!');
+        setModoLogin(true);
+        setNome('');
+        setEmail('');
+        setSenha('');
+      } catch (error) {
+        Alert.alert('Erro ao cadastrar', error.message);
+      } finally {
+        setIsLoading(false);
+      }
     } else {
-      alert("Os dados não são válidos!");
+      Alert.alert('Erro', 'Os dados não são válidos!');
     }
   };
 
@@ -74,7 +97,7 @@ const LoginScreen = ({ route, navigation }) => {
             style={styles.textInput}
             placeholder="Nome"
             value={nome}
-            onChangeText={setNome}
+            onChangeText={(text) => setNome(text)}
           />
         </View>
       )}
@@ -84,8 +107,9 @@ const LoginScreen = ({ route, navigation }) => {
         <TextInput
           style={styles.textInput}
           value={email}
-          onChangeText={setEmail}
+          onChangeText={(text) => setEmail(text)}
           keyboardType="email-address"
+          placeholder="Digite seu email"
         />
         <FontAwesome name="user" size={20} color="#333" />
       </View>
@@ -95,15 +119,16 @@ const LoginScreen = ({ route, navigation }) => {
         <TextInput
           style={styles.textInput}
           value={senha}
-          onChangeText={setSenha}
+          onChangeText={(text) => setSenha(text)}
           secureTextEntry
+          placeholder="Digite sua senha"
         />
         <FontAwesome name="lock" size={20} color="#333" />
       </View>
 
       <TouchableOpacity
         style={styles.button}
-        onPress={modoLogin ? aoLogar : handleRegister}
+        onPress={modoLogin ? handleLogin : handleRegister}
       >
         <Text style={styles.buttonText}>
           {modoLogin ? 'Login' : 'Cadastrar-se'}
@@ -112,10 +137,7 @@ const LoginScreen = ({ route, navigation }) => {
 
       <TouchableOpacity onPress={() => setModoLogin(!modoLogin)}>
         <Text style={styles.switchText}>
-          {modoLogin ? 'Não tem conta? ' : 'Já tem conta? '}
-          <Text style={styles.linkText}>
-            {modoLogin ? 'Cadastre-se' : 'Fazer login'}
-          </Text>
+          {modoLogin ? 'Não tem conta? Cadastre-se' : 'Já tem conta? Fazer login'}
         </Text>
       </TouchableOpacity>
     </KeyboardAvoidingView>
@@ -155,11 +177,9 @@ const styles = StyleSheet.create({
   },
   button: {
     backgroundColor: '#aaa',
-    margin: 100,
     padding: 14,
     alignItems: 'center',
-    marginTop: 100,
-    marginBottom: 10,
+    marginVertical: 10,
   },
   buttonText: {
     color: '#000',
@@ -170,10 +190,6 @@ const styles = StyleSheet.create({
     marginBottom: 200,
     textAlign: 'center',
     color: '#333',
-  },
-  linkText: {
-    color: '#1E90FF',
-    fontWeight: 'bold',
   },
   loadingContainer: {
     flex: 1,
