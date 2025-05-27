@@ -13,3 +13,7 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const analytics = getAnalytics(app);
+
+export { app, analytics };
+import { getFirestore } from "firebase/firestore";
+export const db = getFirestore(app);

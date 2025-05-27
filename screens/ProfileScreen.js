@@ -1,7 +1,36 @@
+import React, { useState, useEffect } from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db } from '../firebaseConnection';
+import { useNavigation } from '@react-navigation/native';
 
-const ProfileScreen = ({ navigation }) => {
+const ProfileScreen = () => {
+  const navigation = useNavigation();
+  const [profile, setProfile] = useState(null);
+
+  useEffect(() => {
+    const docRef = doc(db, 'users', "1");
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        setProfile(docSnap.data());
+      } else {
+        Alert.alert('Perfil não encontrado');
+      }
+    }, (error) => {
+      console.error("Erro no onSnapshot:", error);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  if (!profile) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text>Carregando perfil...</Text>
+      </View>
+    );
+  }
+
   const handleEditProfile = () => {
     navigation.navigate('EditProfile');
   };
@@ -11,10 +40,7 @@ const ProfileScreen = ({ navigation }) => {
       'Excluir Perfil',
       'Deseja realmente excluir seu perfil?',
       [
-        {
-          text: 'Cancelar',
-          style: 'cancel'
-        },
+        { text: 'Cancelar', style: 'cancel' },
         {
           text: 'Confirmar',
           onPress: () => {
@@ -38,11 +64,11 @@ const ProfileScreen = ({ navigation }) => {
           source={{ uri: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS3ESSldcmTziYOMXb8l9DjjPGv2By6jFtWZw&s' }}
           style={styles.profileImage}
         />
-        <Text style={styles.name}>Pedro Marcato</Text>
-        <Text style={styles.detail}>Idade: 20 anos</Text>
-        <Text style={styles.detail}>Ocupação: Estudante</Text>
+        <Text style={styles.name}>{profile.nome}</Text>
+        <Text style={styles.detail}>Idade: {profile.idade || 'Não informado'}</Text>
+        <Text style={styles.detail}>Ocupação: {profile.cargo || 'Não informada'}</Text>
         <Text style={styles.description}>
-          Meu nome é Pedro Araújo Marcato e este é o meu perfil. Estou cursando ADS no IESB Sul e já estou no 4º semestre.
+          Meu nome é {profile.nome} e este é o meu perfil.
         </Text>
       </View>
 
@@ -59,6 +85,11 @@ const ProfileScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   container: {
     paddingVertical: 30,
     backgroundColor: '#fff',
